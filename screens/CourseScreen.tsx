@@ -70,6 +70,14 @@ const CourseScreen = ({ route }: { route: any }) => {
     );
   }
 
+  if (!loading && !course) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={{ color: colors.text }}>Курс не найден</Text>
+      </View>
+    );
+  }
+
   if (course) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
