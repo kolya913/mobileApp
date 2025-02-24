@@ -1,0 +1,173 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useAuthInternetConnection } from './useAuthInternetConnection';
+import api from '../config/axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+export interface ScheduleDTO {
+  id?: number | null;
+  dateTime?: string | null;
+  type?: string | null;
+  groupId?: number | null;
+  groupName?: string | null;
+  studentId?: number | null;
+  studentName?: string | null;
+  instructorId?: number | null;
+  instructorName?: string | null;
+  attendance?: AttendanceDTO[];
+}
+
+export interface AttendanceDTO {
+  id: number;
+  scheduleId: number;
+  studentId: number;
+  instructorId: number;
+  status: string;
+}
+
+export const useSchedule = () => {
+  const { userId } = useAuthInternetConnection();
+  const [schedule, setSchedule] = useState<ScheduleDTO[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingAttendanceIds, setLoadingAttendanceIds] = useState<number[]>([]);
+
+  const updateAttendanceStatus = useCallback(
+    async (scheduleId: number, status: boolean, daySchedule: ScheduleDTO[]) => {
+      try {
+        console.log('[DEBUG] Переданный daySchedule перед обновлением:', JSON.stringify(daySchedule, null, 2));
+  
+        const token = await AsyncStorage.getItem('accessToken');
+        if (!token) {
+          console.warn('[DEBUG] Токен не найден, запрос не выполнен.');
+          return daySchedule;
+        }
+  
+        const response = await api.post<AttendanceDTO>(
+          `/v1/schedules/user/attendances/${scheduleId}?status=${status}`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+  
+        console.log('[DEBUG] Server response:', response.data);
+  
+        const updatedDaySchedule = daySchedule.map(scheduleItem => {
+          if (scheduleItem.id === scheduleId) {
+            const existingAttendance = scheduleItem.attendance || [];
+            const attendanceIndex = existingAttendance.findIndex(att => att.studentId === response.data.studentId);
+  
+            const updatedAttendance =
+              attendanceIndex !== -1
+                ? existingAttendance.map((att, index) =>
+                    index === attendanceIndex ? response.data : att
+                  )
+                : [...existingAttendance, response.data];
+  
+            return { ...scheduleItem, attendance: updatedAttendance };
+          }
+          return scheduleItem;
+        });
+  
+        console.log('[DEBUG] daySchedule после обновления:', JSON.stringify(updatedDaySchedule, null, 2));
+  
+        return updatedDaySchedule;
+      } catch (err) {
+        console.error('Ошибка обновления посещаемости:', err);
+        throw err;
+      }
+    },
+    []
+  );
+
+
+  const fetchScheduleAndAttendance = useCallback(async (year: number, month: number) => {
+    if (!userId) {
+      setError('Пользователь не авторизован');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        setError('Токен отсутствует');
+        setLoading(false);
+        return;
+      }
+
+      const monthYear = `${String(month).padStart(2, '0')}.${year}`;
+      const scheduleResponse = await api.get<ScheduleDTO[]>(
+        `/v1/schedules/user/${userId}?month=${monthYear}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+
+      setSchedule(scheduleResponse.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Ошибка при загрузке данных');
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  const fetchAttendanceForDay = useCallback(async (date: string, scheduleIds: number[]) => {
+    if (!userId || scheduleIds.length === 0) {
+      console.log('Пользователь не авторизован или отсутствуют scheduleIds');
+      return;
+    }
+  
+    console.log('Начало загрузки посещаемости для scheduleIds:', scheduleIds);
+    setLoadingAttendanceIds(prev => [...prev, ...scheduleIds]);
+  
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        console.log('Токен отсутствует в AsyncStorage');
+        return;
+      }
+  
+      console.log('Токен получен, начинаем загрузку данных посещаемости...');
+  
+      const attendancePromises = scheduleIds.map(async (id) => {
+        console.log(`Загрузка данных для scheduleId: ${id}`);
+        const response = await api.get<AttendanceDTO[]>(
+          `/v1/schedules/user/attendances/${id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        console.log(`Данные получены для scheduleId: ${id}`, response.data);
+        return { id, attendance: response.data };
+      });
+  
+      const results = await Promise.all(attendancePromises);
+      console.log('Все данные посещаемости загружены:', results);
+  
+      setSchedule(prev =>
+        prev.map(item => {
+          const found = results.find(r => r.id === item.id);
+          if (found) {
+            console.log(`Обновление данных для scheduleId: ${item.id}`, found.attendance);
+            return { ...item, attendance: found.attendance };
+          }
+          return item;
+        })
+      );
+    } catch (err) {
+      console.error('Ошибка загрузки посещаемости:', err);
+    } finally {
+      console.log('Завершение загрузки посещаемости для scheduleIds:', scheduleIds);
+      setLoadingAttendanceIds(prev => prev.filter(id => !scheduleIds.includes(id)));
+    }
+  }, [userId]);
+
+  return {
+    schedule,
+    setSchedule,
+    loading,
+    error,
+    loadingAttendanceIds,
+    fetchScheduleAndAttendance,
+    fetchAttendanceForDay,
+    updateAttendanceStatus,
+  };
+};
