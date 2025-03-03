@@ -38,6 +38,7 @@ const ProfileScreen = (): React.JSX.Element => {
   useEffect(() => {
     if (isAuthenticated && userId) {
       getUserDetails(userId);
+      getUserPayments(userId);
     }
   }, [isAuthenticated, userId]);
 
@@ -131,7 +132,7 @@ const ProfileScreen = (): React.JSX.Element => {
             <Text style={styles.bold}>Телефон:</Text> {userDetails.phoneNumber}
           </Text>
           <Text style={[styles.userInfoText, { color: colors.text }]}>
-            <Text style={styles.bold}>Группа:</Text> {userDetails.groups ? userDetails.groups[0]?.name : 'Не назначено'}
+            <Text style={styles.bold}>Группа:</Text> {userDetails.groups?.[0]?.name || 'Не назначено'}
           </Text>
           <Text style={[styles.userInfoText, { color: colors.text }]}>
             <Text style={styles.bold}>Оплата за обучение:</Text> {userDetails.payForStudying} руб.
@@ -169,7 +170,7 @@ const ProfileScreen = (): React.JSX.Element => {
           style={[styles.button, { backgroundColor: colors.primary }]}
           onPress={handleViewPayments}
         >
-          <Text style={[styles.buttonText, { color: colors.buttonText }]}>Посмотреть оплаты</Text>
+          <Text style={[styles.buttonText, { color: colors.buttonText }]}>История платежей</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -180,88 +181,106 @@ const ProfileScreen = (): React.JSX.Element => {
         </TouchableOpacity>
       </View>
 
-      <Modal visible={modalVisible} transparent animationType="fade">
-        <View style={[styles.modalContainer, { backgroundColor: colors.overlay }]}>
-          {loadingPayments ? (
-            <ActivityIndicator size="large" color={colors.primary} />
-          ) : (
-            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>История платежей</Text>
-              {userPayments.length > 0 ? (
-                <FlatList
-                  data={userPayments}
-                  keyExtractor={(item) => item.id.toString()}
-                  renderItem={renderPaymentItem}
-                />
-              ) : (
-                <Text style={[styles.noPaymentsText, { color: colors.text }]}>Нет доступных платежей</Text>
-              )}
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: colors.primary }]}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={[styles.buttonText, { color: colors.buttonText }]}>Закрыть</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>История платежей</Text>
+            {loadingPayments ? (
+              <ActivityIndicator size="large" color={colors.primary} />
+            ) : userPayments.length > 0 ? (
+              <FlatList
+                data={userPayments}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={renderPaymentItem}
+                style={styles.paymentList}
+              />
+            ) : (
+              <Text style={[styles.noPaymentsText, { color: colors.text }]}>Нет доступных платежей</Text>
+            )}
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.primary }]}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={[styles.modalButtonText, { color: colors.buttonText }]}>Закрыть</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
 
-      <Modal visible={paymentModalVisible} transparent animationType="fade">
-        <View style={[styles.modalContainer, { backgroundColor: colors.overlay }]}>
-          <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Оплата</Text>
+      <Modal visible={paymentModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Оплата обучения</Text>
 
             <TextInput
-              style={[styles.input, { color: colors.text, borderColor: colors.text }]}
+              style={[styles.input, {
+                color: colors.text,
+                borderColor: colors.text,
+                backgroundColor: colors.cardBackground,
+              }]}
               placeholder="Сумма"
+              placeholderTextColor={colors.textSecondary}
               keyboardType="numeric"
               value={paymentData.amount.toString()}
               onChangeText={(text) => {
                 const numericValue = parseFloat(text) || 0;
-
                 const maxAmount = userDetails?.payForStudying || 0;
-
                 const newAmount = Math.min(numericValue, maxAmount);
-
                 setPaymentData({ ...paymentData, amount: newAmount });
               }}
             />
 
             <TextInput
-              style={[styles.input, { color: colors.text, borderColor: colors.text }]}
+              style={[styles.input, { 
+                color: colors.text, 
+                borderColor: colors.text,
+                backgroundColor: colors.cardBackground 
+              }]}
               placeholder="Номер карты"
+              placeholderTextColor={colors.textSecondary}
               value={paymentData.cardNumber}
               onChangeText={(text) => setPaymentData({ ...paymentData, cardNumber: text })}
             />
 
             <TextInput
-              style={[styles.input, { color: colors.text, borderColor: colors.text }]}
+              style={[styles.input, { 
+                color: colors.text, 
+                borderColor: colors.text,
+                backgroundColor: colors.cardBackground 
+              }]}
               placeholder="CVV"
+              placeholderTextColor={colors.textSecondary}
               value={paymentData.cvv}
               onChangeText={(text) => setPaymentData({ ...paymentData, cvv: text })}
             />
 
             <TextInput
-              style={[styles.input, { color: colors.text, borderColor: colors.text }]}
+              style={[styles.input, { 
+                color: colors.text, 
+                borderColor: colors.text,
+                backgroundColor: colors.cardBackground 
+              }]}
               placeholder="Срок действия (MM/YY)"
+              placeholderTextColor={colors.textSecondary}
               value={paymentData.expiryDate}
               onChangeText={(text) => setPaymentData({ ...paymentData, expiryDate: text })}
             />
 
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary }]}
-              onPress={handlePaymentSubmit}
-            >
-              <Text style={[styles.buttonText, { color: colors.buttonText }]}>Оплатить</Text>
-            </TouchableOpacity>
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                onPress={handlePaymentSubmit}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.buttonText }]}>Оплатить</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary }]}
-              onPress={() => setPaymentModalVisible(false)}
-            >
-              <Text style={[styles.buttonText, { color: colors.buttonText }]}>Отмена</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.error }]}
+                onPress={() => setPaymentModalVisible(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.buttonText }]}>Отмена</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -272,8 +291,7 @@ const ProfileScreen = (): React.JSX.Element => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 30,
+    padding: 20,
   },
   centered: {
     flex: 1,
@@ -281,7 +299,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   userInfoContainer: {
-    marginBottom: 30,
+    marginBottom: 20,
   },
   userInfoText: {
     fontSize: 16,
@@ -291,54 +309,46 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   buttonContainer: {
-    alignSelf: 'center',
-    marginTop: 20,
+    gap: 15,
   },
   button: {
-    paddingVertical: 12,
-    paddingHorizontal: 40,
+    padding: 15,
     borderRadius: 8,
-    width: '60%',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 10,
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '500',
   },
-  modalContainer: {
+  modalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    width: '80%',
+    width: '90%',
+    maxHeight: '80%',
     padding: 20,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 5,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
   },
-  errorText: {
-    fontSize: 16,
-    color: 'red',
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
   },
-  noPaymentsText: {
-    fontSize: 16,
-    marginVertical: 20,
+  paymentList: {
+    maxHeight: 300,
+    marginBottom: 15,
   },
   paymentItem: {
     padding: 10,
-    marginVertical: 5,
     borderRadius: 8,
+    marginVertical: 5,
   },
   paymentText: {
     fontSize: 14,
-    marginVertical: 2,
   },
   studentText: {
     fontSize: 14,
@@ -346,10 +356,32 @@ const styles = StyleSheet.create({
   },
   input: {
     width: '100%',
-    padding: 10,
-    borderWidth: 1,
+    padding: 12,
     borderRadius: 8,
-    marginVertical: 10,
+    borderWidth: 1,
+    marginVertical: 8,
+    fontSize: 16,
+  },
+  modalButtonContainer: {
+    marginTop: 15,
+    gap: 10,
+  },
+  modalButton: {
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  noPaymentsText: {
+    textAlign: 'center',
+    marginVertical: 15,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
 

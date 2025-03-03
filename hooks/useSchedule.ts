@@ -24,6 +24,12 @@ export interface AttendanceDTO {
   status: string;
 }
 
+export interface UserDTO {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+
 export const useSchedule = () => {
   const { userId } = useAuthInternetConnection();
   const [schedule, setSchedule] = useState<ScheduleDTO[]>([]);
@@ -34,7 +40,6 @@ export const useSchedule = () => {
   const updateAttendanceStatus = useCallback(
     async (scheduleId: number, status: boolean, daySchedule: ScheduleDTO[]) => {
       try {
-        console.log('[DEBUG] Переданный daySchedule перед обновлением:', JSON.stringify(daySchedule, null, 2));
   
         const token = await AsyncStorage.getItem('accessToken');
         if (!token) {
@@ -48,7 +53,6 @@ export const useSchedule = () => {
           { headers: { Authorization: `Bearer ${token}` } }
         );
   
-        console.log('[DEBUG] Server response:', response.data);
   
         const updatedDaySchedule = daySchedule.map(scheduleItem => {
           if (scheduleItem.id === scheduleId) {
@@ -67,7 +71,6 @@ export const useSchedule = () => {
           return scheduleItem;
         });
   
-        console.log('[DEBUG] daySchedule после обновления:', JSON.stringify(updatedDaySchedule, null, 2));
   
         return updatedDaySchedule;
       } catch (err) {
@@ -117,7 +120,6 @@ export const useSchedule = () => {
       return;
     }
   
-    console.log('Начало загрузки посещаемости для scheduleIds:', scheduleIds);
     setLoadingAttendanceIds(prev => [...prev, ...scheduleIds]);
   
     try {
@@ -127,7 +129,6 @@ export const useSchedule = () => {
         return;
       }
   
-      console.log('Токен получен, начинаем загрузку данных посещаемости...');
   
       const attendancePromises = scheduleIds.map(async (id) => {
         console.log(`Загрузка данных для scheduleId: ${id}`);
@@ -135,12 +136,10 @@ export const useSchedule = () => {
           `/v1/schedules/user/attendances/${id}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        console.log(`Данные получены для scheduleId: ${id}`, response.data);
         return { id, attendance: response.data };
       });
   
       const results = await Promise.all(attendancePromises);
-      console.log('Все данные посещаемости загружены:', results);
   
       setSchedule(prev =>
         prev.map(item => {
@@ -155,10 +154,58 @@ export const useSchedule = () => {
     } catch (err) {
       console.error('Ошибка загрузки посещаемости:', err);
     } finally {
-      console.log('Завершение загрузки посещаемости для scheduleIds:', scheduleIds);
       setLoadingAttendanceIds(prev => prev.filter(id => !scheduleIds.includes(id)));
     }
   }, [userId]);
+
+
+  const getStudentsForInstructor = async (): Promise<UserDTO[]> => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token || !userId) {
+        throw new Error('Authentication error');
+      }
+  
+      const response = await api.get<UserDTO[]>(
+        `/v1/users/students/${userId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+  
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to fetch students');
+    }
+  };
+
+
+  const createSchedule = async (data: {
+    dateTime: string;
+    studentId: number[];
+  }) => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        throw new Error('Authentication token missing');
+      }
+  
+  
+      const requestData = {
+        ...data,
+        instrucktorId:userId,
+        type: 'PRACTICE',
+      };
+  
+  
+      const response = await api.post('/v1/schedules', requestData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+  
+  
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to create schedule');
+    }
+  };
 
   return {
     schedule,
@@ -167,7 +214,9 @@ export const useSchedule = () => {
     error,
     loadingAttendanceIds,
     fetchScheduleAndAttendance,
+    getStudentsForInstructor,
     fetchAttendanceForDay,
     updateAttendanceStatus,
+    createSchedule,
   };
 };

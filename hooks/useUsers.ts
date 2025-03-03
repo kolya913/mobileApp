@@ -59,54 +59,77 @@ export const useUsers = () => {
 
   const getUserDetails = async (userId: string) => {
     try {
+      console.log('[getUserDetails] Начало выполнения функции');
       setLoading(true);
       setError(null);
 
+      console.log('[getUserDetails] Получение токена из AsyncStorage');
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
+        console.error('[getUserDetails] Токен не найден');
         throw new Error('Token not found');
       }
 
+      console.log('[getUserDetails] Отправка запроса на сервер для получения данных пользователя');
       const response = await api.get(`/v1/users/${userId}/details`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
+      console.log('[getUserDetails] Ответ от сервера:', response.data);
+
       const userData: UserDetailsDTO = response.data;
       setUserDetails(userData);
     } catch (err) {
+      console.error('[getUserDetails] Ошибка:', err.message || err);
       setError(err.message || 'An error occurred while fetching user details');
     } finally {
+      console.log('[getUserDetails] Завершение функции');
       setLoading(false);
     }
   };
 
-  const getUserPayments = async (userId: string) => {
-    try {
-      setLoading(true);
-      setError(null);
+  const [paymentNotFound, setPaymentNotFound] = useState<boolean>(false);
 
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
-        throw new Error('Token not found');
-      }
+const getUserPayments = async (userId: string) => {
+  try {
+    console.log('[getUserPayments] Начало выполнения функции');
+    setLoading(true);
+    setError(null);
+    setPaymentNotFound(false);
 
-      const response = await api.get(`/v1/users/${userId}/payments`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const payments: PaymentDTO[] = response.data;
-      setUserPayments(payments);
-    } catch (err) {
-      setError(err.message || 'An error occurred while fetching payments');
-    } finally {
-      setLoading(false);
+    console.log('[getUserPayments] Получение токена из AsyncStorage');
+    const token = await AsyncStorage.getItem('accessToken');
+    if (!token) {
+      console.error('[getUserPayments] Токен не найден');
+      throw new Error('Token not found');
     }
-  };
 
+    console.log('[getUserPayments] Отправка запроса на сервер для получения платежей пользователя');
+    const response = await api.get(`/v1/users/${userId}/payments`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log('[getUserPayments] Ответ от сервера:', response.data);
+    const payments: PaymentDTO[] = response.data;
+    setUserPayments(payments);
+  } catch (err: any) {
+    console.error('[getUserPayments] Ошибка:', err.message || err);
+    if (err.response?.status === 404) {
+      console.warn('[getUserPayments] Платежи не найдены (404)');
+      setPaymentNotFound(true);
+      setUserPayments([]);
+    } else {
+      setError(err.message || 'Произошла ошибка при получении платежей');
+    }
+  } finally {
+    console.log('[getUserPayments] Завершение функции');
+    setLoading(false);
+  }
+};
   const makePayment = async (paymentData: {
     amount: number;
     cardNumber: string;
@@ -117,19 +140,19 @@ export const useUsers = () => {
       console.log('[makePayment] Начало выполнения функции');
       setLoading(true);
       setError(null);
-  
+
       console.log('[makePayment] Получение токена из AsyncStorage');
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) {
         console.error('[makePayment] Токен не найден');
         throw new Error('Token not found');
       }
-  
+
       if (!userId) {
         console.error('[makePayment] User ID не доступен');
         throw new Error('User ID is not available');
       }
-  
+
       const paymentRequest = {
         amount: paymentData.amount,
         paymentMethod: 'CARD',
@@ -137,9 +160,9 @@ export const useUsers = () => {
         expiryDate: paymentData.expiryDate,
         cvv: paymentData.cvv,
       };
-  
+
       console.log('[makePayment] Тело запроса:', paymentRequest);
-  
+
       console.log('[makePayment] Отправка запроса на сервер');
       const response = await api.post(
         `/v1/users/pay/${userId}`,
@@ -151,13 +174,13 @@ export const useUsers = () => {
           },
         }
       );
-  
+
       console.log('[makePayment] Ответ от сервера:', response.data);
-  
+
       console.log('[makePayment] Обновление данных пользователя');
       await getUserDetails(userId);
       await getUserPayments(userId);
-  
+
       console.log('[makePayment] Оплата успешно завершена');
       return response.data;
     } catch (err) {
@@ -176,9 +199,13 @@ export const useUsers = () => {
   };
 
   useEffect(() => {
+    console.log('[useUsers] Проверка аутентификации и userId');
     if (isAuthenticated && userId) {
+      console.log('[useUsers] Аутентификация подтверждена, запрос данных пользователя и платежей');
       getUserDetails(userId);
       getUserPayments(userId);
+    } else {
+      console.log('[useUsers] Пользователь не аутентифицирован или userId отсутствует');
     }
   }, [isAuthenticated, userId]);
 
@@ -187,6 +214,7 @@ export const useUsers = () => {
     userPayments,
     loading,
     error,
+    paymentNotFound,
     getUserDetails,
     resetUserDetails,
     getUserPayments,

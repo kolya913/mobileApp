@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { useRules } from '../hooks/useRules';
 import { useTheme } from '../hooks/ThemeContext';
 import { themes } from '../theme/Styles';

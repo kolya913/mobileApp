@@ -61,7 +61,7 @@ function App(): React.JSX.Element {
 
   const handleProfilePress = () => {
     if (isAuthenticated) {
-      navigation.navigate("Profile");
+      navigation.navigate('Profile');
     } else {
       setIsLoginModalVisible(true);
     }
@@ -93,11 +93,11 @@ function App(): React.JSX.Element {
     try {
       const results = await getAllExamResults();
       if (results.length === 0) {
-        setLastExamResult("Нет данных");
+        setLastExamResult('Нет данных');
         return;
       }
       const lastExam = results.sort((a, b) => new Date(b.examDate).getTime() - new Date(a.examDate).getTime())[0];
-      setLastExamResult(lastExam.passed ? "Сдан" : "Не сдан");
+      setLastExamResult(lastExam.passed ? 'Сдан' : 'Не сдан');
     } catch (err) {
       console.error('Ошибка загрузки статистики по экзаменам:', err);
     }

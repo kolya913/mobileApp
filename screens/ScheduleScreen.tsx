@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Button, Alert } from 'react-native';
 import { useTheme } from '../hooks/ThemeContext';
 import { useSchedule } from '../hooks/useSchedule';
 import { themes } from '../theme/Styles';
 import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
 import DaySchedule from '../components/schedule/DaySchedule';
+import { useAuthInternetConnection } from '../hooks/useAuthInternetConnection';
+import { Picker } from '@react-native-picker/picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 LocaleConfig.locales['ru'] = {
   monthNames: [
@@ -60,11 +63,22 @@ const ScheduleScreen = () => {
     fetchScheduleAndAttendance,
     fetchAttendanceForDay,
     updateAttendanceStatus,
+    getStudentsForInstructor,
+    createSchedule,
   } = useSchedule();
+
+  const { roles, userId } = useAuthInternetConnection();
+  const normalizedRoles = Array.isArray(roles) ? roles : [roles];
+  const isPracticalInstructor = normalizedRoles.includes('PRACTICAL_INSTRUCTOR');
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [loadedAttendanceDates, setLoadedAttendanceDates] = useState<Set<string>>(new Set());
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedTime, setSelectedTime] = useState(new Date());
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [students, setStudents] = useState<{ id: number; firstName: string; lastName: string }[]>([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
 
   useEffect(() => {
     const currentDate = new Date();
@@ -132,6 +146,56 @@ const ScheduleScreen = () => {
     return marked;
   }, [schedule, colors.primary, selectedDate]);
 
+  const handleAddLesson = async () => {
+    if (!userId) {
+      console.error('Пользователь не авторизован');
+      return;
+    }
+
+    try {
+      const students = await getStudentsForInstructor();
+      setStudents(students);
+      setSelectedStudentIds([]);
+      setIsModalVisible(true);
+    } catch (err) {
+      console.error('Ошибка загрузки студентов:', err);
+    }
+  };
+
+  const handleCreateSchedule = async () => {
+    if (selectedStudentIds.length === 0) {
+      Alert.alert('Ошибка', 'Пожалуйста, выберите хотя бы одного студента.');
+      return;
+    }
+
+    try {
+      const timeString = selectedTime.toTimeString().split(' ')[0];
+      const dateTime = `${selectedDate}T${timeString}`;
+
+      await createSchedule({
+        dateTime,
+        studentId: selectedStudentIds,
+        instructorId: userId!,
+      });
+
+      setIsModalVisible(false);
+      setSelectedStudentIds([]);
+      setSelectedTime(new Date());
+
+      const currentDate = new Date();
+      fetchScheduleAndAttendance(currentDate.getFullYear(), currentDate.getMonth() + 1);
+    } catch (err) {
+      console.error('Ошибка создания занятия:', err);
+    }
+  };
+
+  const handleTimeChange = (event: any, selectedDate?: Date) => {
+    setShowTimePicker(false);
+    if (selectedDate) {
+      setSelectedTime(selectedDate);
+    }
+  };
+
   if (initialLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -171,6 +235,91 @@ const ScheduleScreen = () => {
             },
           ]}
         />
+
+        {isPracticalInstructor && (
+          <TouchableOpacity
+            style={[
+              styles.addButton,
+              {
+                backgroundColor: colors.primary,
+                marginBottom: 10,
+              }
+            ]}
+            onPress={handleAddLesson}
+          >
+            <Text style={{ color: colors.buttonText }}>
+              Назначить занятие
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <Modal visible={isModalVisible} transparent animationType="fade">
+          <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+            <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Назначить занятие на {selectedDate}
+              </Text>
+
+              <Text style={[styles.label, { color: colors.text }]}>Время:</Text>
+              <TouchableOpacity
+                style={[styles.timePickerButton, { borderColor: colors.border }]}
+                onPress={() => setShowTimePicker(true)}
+              >
+                <Text style={{ color: colors.text }}>
+                  {selectedTime.toLocaleTimeString()}
+                </Text>
+              </TouchableOpacity>
+
+              {showTimePicker && (
+                <DateTimePicker
+                  value={selectedTime}
+                  mode="time"
+                  is24Hour={true}
+                  display="default"
+                  onChange={handleTimeChange}
+                />
+              )}
+
+              <Text style={[styles.label, { color: colors.text }]}>Студенты:</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={selectedStudentIds}
+                  onValueChange={(itemValue) => setSelectedStudentIds(itemValue)}
+                  mode="dropdown"
+                  style={[styles.picker, { color: colors.text }]}
+                  multiple
+                >
+                  <Picker.Item
+                    label="Выберите студента"
+                    value={null}
+                    enabled={false}
+                  />
+                  {students.map(student => (
+                    <Picker.Item
+                      key={student.id}
+                      label={`${student.firstName} ${student.lastName}`}
+                      value={student.id}
+                    />
+                  ))}
+                </Picker>
+              </View>
+
+              <View style={styles.modalButtons}>
+                <Button
+                  title="Отмена"
+                  onPress={() => setIsModalVisible(false)}
+                  color={colors.border}
+                />
+                <Button
+                  title="Создать"
+                  onPress={handleCreateSchedule}
+                  color={colors.primary}
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         <View style={styles.scheduleContainer}>
           <Text style={[styles.scheduleTitle, { color: colors.text }]}>
             Расписание на {selectedDate}
@@ -218,6 +367,52 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginVertical: 20,
+  },
+  addButton: {
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    width: '100%',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContainer: {
+    width: '90%',
+    padding: 20,
+    borderRadius: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  label: {
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  timePickerButton: {
+    borderWidth: 1,
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 15,
+    alignItems: 'center',
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderRadius: 5,
+    marginBottom: 15,
+  },
+  picker: {
+    width: '100%',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
 });
 

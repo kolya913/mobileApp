@@ -17,7 +17,6 @@ import ProfileScreen from './screens/ProfileScreen';
 import ScheduleScreen from './screens/ScheduleScreen';
 import CourseScreen from './screens/CourseScreen';
 import StatisticsScreen from './screens/StatisticsScreen';
-import { enableScreens } from 'react-native-screens';
 
 const Stack = createStackNavigator();
 
@@ -39,16 +38,16 @@ const AppNavigator = () => {
             headerTitleStyle: { fontSize: 18, fontWeight: 'bold' },
           }}
         >
-          <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: "Профиль" }} initialParams={{ theme: colors }} />
+          <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Профиль' }} initialParams={{ theme: colors }} />
           <Stack.Screen name="Home" component={App} options={{ headerShown: false }} />
-          <Stack.Screen name="Rules" component={RulesScreen} options={{ title: "Правила" }} />
-          <Stack.Screen name="RuleDetails" component={RuleDetailsScreen} options={{ title: "Детали правила" }} />
-          <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Настройки" }} />
-          <Stack.Screen name="Tickets" component={TicketsScreen} options={{ title: "Билеты" }} /> 
-          <Stack.Screen name="Ticket" component={TicketScreen} options={{ title: "Билет" }} />
-          <Stack.Screen name="Schedule" component={ScheduleScreen} options={{ title: "Расписание" }} />
-          <Stack.Screen name="Course" component={CourseScreen} options={{ title: "Курс" }} />
-          <Stack.Screen name="Statistics" component={StatisticsScreen} options={{ title: "Статистика" }} />
+          <Stack.Screen name="Rules" component={RulesScreen} options={{ title: 'Правила' }} />
+          <Stack.Screen name="RuleDetails" component={RuleDetailsScreen} options={{ title: 'Детали правила' }} />
+          <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Настройки' }} />
+          <Stack.Screen name="Tickets" component={TicketsScreen} options={{ title: 'Билеты' }} />
+          <Stack.Screen name="Ticket" component={TicketScreen} options={{ title: 'Билет' }} />
+          <Stack.Screen name="Schedule" component={ScheduleScreen} options={{ title: 'Расписание' }} />
+          <Stack.Screen name="Course" component={CourseScreen} options={{ title: 'Курс' }} />
+          <Stack.Screen name="Statistics" component={StatisticsScreen} options={{ title: 'Статистика' }} />
         </Stack.Navigator>
         <ConnectionStatus />
       </AuthInternetConnectionProvider>

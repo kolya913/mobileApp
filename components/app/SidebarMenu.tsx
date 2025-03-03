@@ -25,7 +25,11 @@ const SidebarMenu = ({ onClose, menuAnimation }: SidebarMenuProps): React.JSX.El
   const colors = themes[currentTheme];
   const navigation = useNavigation<any>();
 
-  const { isAuthenticated, userId } = useAuthInternetConnection();
+  const { isAuthenticated, userId, roles } = useAuthInternetConnection();
+
+  const normalizedRoles = Array.isArray(roles) ? roles : [roles];
+
+  const isPracticalInstructor = normalizedRoles.includes('PRACTICAL_INSTRUCTOR');
 
   return (
     <Animated.View
@@ -64,7 +68,7 @@ const SidebarMenu = ({ onClose, menuAnimation }: SidebarMenuProps): React.JSX.El
             <Text style={{ color: colors.text }}>🎫 Билеты</Text>
           </TouchableOpacity>
 
-          {isAuthenticated && (
+          {isAuthenticated && !isPracticalInstructor && (
             <TouchableOpacity
               style={[styles.item, { borderBottomColor: colors.border }]}
               onPress={() => {

@@ -35,7 +35,7 @@ const StatisticsScreen = () => {
   }, [getAllTicketsProgress]);
 
   const loadRulesStatistics = useCallback(async () => {
-    if (!rules) return;
+    if (!rules) {return;}
     try {
       const stats = await Promise.all(
         rules.map(async (chapter) => {

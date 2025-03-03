@@ -7,6 +7,8 @@ import {
   Alert,
   TouchableOpacity,
   Animated,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import useCourse from '../hooks/useCourse';
 import { useTheme } from '../hooks/ThemeContext';
@@ -22,7 +24,11 @@ const CourseScreen = ({ route }: { route: any }) => {
 
   const [hasCourseRole, setHasCourseRole] = useState(false);
   const [updatingElement, setUpdatingElement] = useState<number | null>(null);
-  const { course, loading, error, toggleElementVisibility } = useCourse(userId);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [groups, setGroups] = useState<GroupDTO[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+
+  const { course, loading, error, toggleElementVisibility, getGroupsByCourseId } = useCourse(userId);
 
   const normalizedRoles = Array.isArray(roles) ? roles : [roles];
 
@@ -61,6 +67,23 @@ const CourseScreen = ({ route }: { route: any }) => {
     }
   };
 
+  const handleOpenGroupsModal = async () => {
+    if (!course) return;
+
+    setIsModalVisible(true);
+    setLoadingGroups(true);
+
+    try {
+      const groups = await getGroupsByCourseId(course.id);
+      setGroups(groups);
+    } catch (err) {
+      console.error('Ошибка при загрузке групп:', err);
+      Alert.alert('Ошибка', 'Не удалось загрузить группы');
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -82,6 +105,43 @@ const CourseScreen = ({ route }: { route: any }) => {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Text style={[styles.title, { color: colors.text }]}>{course.name}</Text>
+
+        {hasCourseRole && (
+          <TouchableOpacity
+            style={[styles.groupsButton, { backgroundColor: colors.primary }]}
+            onPress={handleOpenGroupsModal}
+          >
+            <Text style={{ color: colors.buttonText }}>Подключенные группы</Text>
+          </TouchableOpacity>
+        )}
+
+        <Modal visible={isModalVisible} transparent animationType="fade">
+          <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+            <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Подключенные группы</Text>
+
+              {loadingGroups ? (
+                <ActivityIndicator size="large" color={colors.primary} />
+              ) : (
+                <ScrollView>
+                  {groups.map((group) => (
+                    <View key={group.id} style={styles.groupItem}>
+                      <Text style={{ color: colors.text }}>{group.groupName}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+
+              <TouchableOpacity
+                style={[styles.closeButton, { backgroundColor: colors.primary }]}
+                onPress={() => setIsModalVisible(false)}
+              >
+                <Text style={{ color: colors.buttonText }}>Закрыть</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         {course.elements && course.elements.length > 0 ? (
           <View style={styles.elementsContainer}>
             {course.elements.map((element) => {
@@ -171,6 +231,40 @@ const styles = StyleSheet.create({
   visibilityButton: {
     padding: 8,
     borderRadius: 8,
+  },
+  groupsButton: {
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContainer: {
+    width: '80%',
+    maxHeight: '80%',
+    padding: 20,
+    borderRadius: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  groupItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+  },
+  closeButton: {
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 20,
+    alignItems: 'center',
   },
 });
 

@@ -9,7 +9,7 @@ const RuleDetailsScreen = ({ route, navigation }): React.JSX.Element => {
   const { currentTheme } = useTheme();
   const colors = themes[currentTheme];
   const { id } = route.params;
-  const { rule, loading, error, saveAllViewedItems } = useRuleDetails(id); 
+  const { rule, loading, error, saveAllViewedItems } = useRuleDetails(id);
 
   useLayoutEffect(() => {
     if (rule) {

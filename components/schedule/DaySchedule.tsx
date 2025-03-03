@@ -10,8 +10,6 @@ import {
 } from 'react-native';
 import { ScheduleDTO } from '../../hooks/useSchedule';
 import { useAuthInternetConnection } from '../../hooks/useAuthInternetConnection';
-import { useTheme } from '../../hooks/ThemeContext';
-import { themes } from '../../theme/Styles';
 import { useSchedule } from '../../hooks/useSchedule';
 
 interface DayScheduleProps {
@@ -27,18 +25,19 @@ const DaySchedule: React.FC<DayScheduleProps> = ({
   loadingAttendanceIds = [],
   onAttendanceUpdate,
 }) => {
-  const { currentTheme } = useTheme();
   const { roles } = useAuthInternetConnection();
   const normalizedRoles = Array.isArray(roles) ? roles : [roles];
   const { updateAttendanceStatus } = useSchedule();
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<ScheduleDTO | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const isPracticeInstructor = normalizedRoles.includes('PRACTICAL_INSTRUCTOR');
 
   const handleAttendanceChange = async (status: 'PRESENT' | 'ABSENT') => {
     if (selectedAttendance?.id) {
+      setIsUpdating(true);
       try {
         const updatedDaySchedule = await updateAttendanceStatus(
           selectedAttendance.id,
@@ -47,7 +46,9 @@ const DaySchedule: React.FC<DayScheduleProps> = ({
         );
         onAttendanceUpdate(updatedDaySchedule);
       } catch (err) {
-        console.error("Ошибка обновления:", err);
+        console.error('Ошибка обновления:', err);
+      } finally {
+        setIsUpdating(false);
       }
     }
     setIsModalVisible(false);
@@ -59,7 +60,7 @@ const DaySchedule: React.FC<DayScheduleProps> = ({
   };
 
   const isFutureOrCurrentDate = (dateTime?: string | null) => {
-    if (!dateTime) return false;
+    if (!dateTime) { return false; }
     const scheduleDate = new Date(dateTime);
     const currentDate = new Date();
     scheduleDate.setHours(0, 0, 0, 0);
@@ -78,14 +79,14 @@ const DaySchedule: React.FC<DayScheduleProps> = ({
         const isFutureOrCurrent = isFutureOrCurrentDate(item.dateTime);
 
         return (
-          <View 
-            key={item.id} 
+          <View
+            key={item.id}
             style={[
-              styles.scheduleItem, 
-              { 
+              styles.scheduleItem,
+              {
                 borderColor: colors.border,
                 backgroundColor: colors.card,
-              }
+              },
             ]}
           >
             {isLoading && (
@@ -124,8 +125,8 @@ const DaySchedule: React.FC<DayScheduleProps> = ({
 
             {item.attendance && (
               <View style={[
-                styles.attendanceContainer, 
-                { backgroundColor: colors.attendanceBackground }
+                styles.attendanceContainer,
+                { backgroundColor: colors.attendanceBackground },
               ]}>
                 <Text style={[styles.attendanceTitle, { color: colors.text }]}>
                   Посещаемость:
@@ -140,8 +141,8 @@ const DaySchedule: React.FC<DayScheduleProps> = ({
                   </Text>
                 ) : (
                   item.attendance.map((attendance) => (
-                    <Text 
-                      key={attendance.id} 
+                    <Text
+                      key={attendance.id}
                       style={[styles.attendanceText, { color: colors.text }]}
                     >
                       {attendance.studentId && `Студент ${attendance.studentId}: `}
@@ -153,14 +154,14 @@ const DaySchedule: React.FC<DayScheduleProps> = ({
             )}
 
             {isPracticeInstructor && isFutureOrCurrent && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => handleOpenModal(item)}
                 style={[
-                  styles.button, 
-                  { 
+                  styles.button,
+                  {
                     backgroundColor: colors.primary,
                     borderColor: colors.border,
-                  }
+                  },
                 ]}
               >
                 <Text style={{ color: colors.buttonText }}>
@@ -174,19 +175,19 @@ const DaySchedule: React.FC<DayScheduleProps> = ({
 
       <Modal visible={isModalVisible} transparent animationType="fade">
         <View style={[
-          styles.modalOverlay, 
-          { backgroundColor: colors.overlay }
+          styles.modalOverlay,
+          { backgroundColor: colors.overlay },
         ]}>
           <View style={[
-            styles.modalContainer, 
-            { 
+            styles.modalContainer,
+            {
               backgroundColor: colors.card,
               shadowColor: colors.text,
-            }
+            },
           ]}>
             <Text style={[
-              styles.modalTitle, 
-              { color: colors.text }
+              styles.modalTitle,
+              { color: colors.text },
             ]}>
               Изменить статус посещаемости
             </Text>
@@ -195,22 +196,21 @@ const DaySchedule: React.FC<DayScheduleProps> = ({
               title="Присутствовал"
               onPress={() => handleAttendanceChange('PRESENT')}
               color={colors.primary}
+              disabled={isUpdating}
             />
-            
             <View style={styles.buttonSpacer} />
-            
             <Button
               title="Отсутствовал"
               onPress={() => handleAttendanceChange('ABSENT')}
               color={colors.error}
+              disabled={isUpdating}
             />
-            
             <View style={styles.buttonSpacer} />
-            
             <Button
               title="Отмена"
               onPress={() => setIsModalVisible(false)}
               color={colors.border}
+              disabled={isUpdating}
             />
           </View>
         </View>

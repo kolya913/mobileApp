@@ -3,6 +3,14 @@ import api from '../config/axios';
 import { useAuthInternetConnection } from '../hooks/useAuthInternetConnection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+
+interface GroupDTO {
+  id: number;
+  groupName: string;
+}
+
+
+
 const useCourse = (userId) => {
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +67,25 @@ const useCourse = (userId) => {
     }
   };
 
-  return { course, loading, error, toggleElementVisibility };
+  const getGroupsByCourseId = async (courseId: number): Promise<GroupDTO[]> => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        throw new Error('Токен отсутствует');
+      }
+  
+      const response = await api.get(`/v1/courses/groups/${courseId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+  
+      return response.data;
+    } catch (error) {
+      console.error('Ошибка при получении групп:', error);
+      throw error;
+    }
+  };
+
+  return { course, loading, error, toggleElementVisibility,getGroupsByCourseId };
 };
 
 export default useCourse;
